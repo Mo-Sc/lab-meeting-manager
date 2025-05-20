@@ -10,10 +10,6 @@ TZ = pytz.timezone("Europe/Berlin")
 
 from datetime import datetime, timedelta
 
-# todo: move to config
-DEFAULT_TIME = "12:30"
-DURATION = 90  # minutes
-
 
 def get_week(kw=None, year=None):
     """
@@ -65,44 +61,64 @@ def render_html_template(template_str, **kwargs):
     return template.substitute(**kwargs)
 
 
+def parse_config(cfg_table):
+    """
+    Function to parse the configuration table from the Google Sheet.
+    The first x rows of the table contain the configuration information.
+    """
+    cfg = {
+        "instructions": cfg_table[3][0],
+        "start_date": cfg_table[4][5],
+        "interval": cfg_table[5][5],
+        "default_time": cfg_table[6][5],
+        "duration": cfg_table[7][5],
+        "location_a": cfg_table[9][5],
+        "location_b": cfg_table[10][5],
+    }
+    return cfg
+
+
 class Talk:
     def __init__(self, talk_row):
-        self.student = talk_row[1]
-        self.associate = talk_row[2]
-        self.talk_type = talk_row[3]
-        self.time_estimate = int(talk_row[4]) if talk_row[4] else ""
-        self.title = talk_row[5]
-        self.comment = talk_row[6] if len(talk_row) > 6 else ""
-        self.internal_comment = (
-            f"[INTERNAL] {talk_row[7]}" if len(talk_row) > 7 else ""
-        )  # not included in agenda, since its shared with students
-        self.comments = f"{self.comment}{'<br>' if self.comment and self.internal_comment else ''}{self.internal_comment}"
+        self.student = talk_row[0]
+        self.associate = talk_row[1]
+        self.talk_type = talk_row[2]
+        self.time_estimate = int(talk_row[3]) if talk_row[3] else ""
+        self.title = talk_row[4]
+        self.comment = talk_row[5] if len(talk_row) > 5 else ""
+        # self.internal_comment = (
+        #     f"[INTERNAL] {talk_row[7]}" if len(talk_row) > 7 else ""
+        # )  # not included in agenda, since its shared with students
+        # self.comments = f"{self.comment}{'<br>' if self.comment and self.internal_comment else ''}{self.internal_comment}"
 
 
 class Meeting:
-    def __init__(self, cell_block):
+    def __init__(self, cell_block, online_config=None):
 
-        header = cell_block[0]
-        self.date = TZ.localize(datetime.strptime(header[0], "%d-%b-%Y")).date()
+        self.online_config = online_config
+
+        self.date = TZ.localize(datetime.strptime(cell_block[0][0], "%d-%b-%Y")).date()
 
         self.cancelled = {"FALSE": False, "TRUE": True}[
-            header[3]
+            cell_block[2][1]
         ]  # convert string to boolean
 
-        self.comment = header[5] if len(header) > 5 else ""
-        # self.time = (
-        #     cell_block[0][1] if len(cell_block[1]) > 0 else "15:30"
-        # )  # default time for meeting is 15:30
-        self.start_time = cell_block[0][1]
+        self.comment = cell_block[4][4] if len(cell_block[4]) > 4 else ""
+
+        self.start_time = cell_block[3][1]
+        self.end_time = cell_block[4][1]
+
         # convert start time to datetime obj and add duration to get end time
-        self.end_time = (
-            datetime.strptime(self.start_time, "%H:%M") + timedelta(minutes=DURATION)
-        ).strftime("%H:%M")
+        # self.end_time = (
+        #     datetime.strptime(self.start_time, "%H:%M") + timedelta(minutes=DURATION)
+        # ).strftime("%H:%M")
+
+        self.location = cell_block[3][4]
 
         talks = []
 
         # extract talks from the cell block. Number of talks can vary
-        for talk_row in cell_block[2:5]:
+        for talk_row in cell_block[9:12]:
             if len(talk_row) > 1:
                 talk = Talk(talk_row)
                 talks.append(talk)
@@ -118,31 +134,32 @@ class Meeting:
 
         talks_html = ""
         # title = "Lab Meeting Agenda - " + self.date.strftime("%d. %B %Y")
-        title = (
-            "Lab Meeting Agenda - "
-            + self.date.strftime("%d. %B %Y")
-            # + " - Würzburg Edition"
-        )
+        title = "Lab Meeting Agenda - " + self.date.strftime("%d. %B %Y")
 
         # create html block for talks section based on meeting status
         if self.cancelled:
             talks_html += render_html_template(HTMLTemplates.MEETING_CANCELLED_TEMPLATE)
             attendace_reminder = ""
             title += " - CANCELLED"
-        elif self.n_talks == 0:
-            talks_html += render_html_template(HTMLTemplates.NO_TALKS_TEMPLATE)
-            attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
         else:
-            talks_html += render_html_template(HTMLTemplates.TALK_HEADER_TEMPLATE)
-            for talk in self.talks:
-                talks_html += render_html_template(
-                    HTMLTemplates.TALK_TEMPLATE, **talk.__dict__
-                )
-            attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
 
-        # if not default time, add it to the title / subject
-        if not self.cancelled and self.start_time != DEFAULT_TIME:
-            title = f"UPDATED TIME: {self.start_time} - " + title
+            # add location to title
+            title += f" - {self.location.split(' ')[-1]} Edition"
+
+            if self.n_talks == 0:
+                talks_html += render_html_template(HTMLTemplates.NO_TALKS_TEMPLATE)
+                attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
+            else:
+                talks_html += render_html_template(HTMLTemplates.TALK_HEADER_TEMPLATE)
+                for talk in self.talks:
+                    talks_html += render_html_template(
+                        HTMLTemplates.TALK_TEMPLATE, **talk.__dict__
+                    )
+                attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
+
+            # if not default time, add it to the title / subject
+            if self.start_time != self.online_config["default_time"]:
+                title = f"UPDATED TIME: {self.start_time} - " + title
             # title += f" - UPDATED TIME: {self.start_time}"
 
         # Embed talks block into the meeting template
