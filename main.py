@@ -98,10 +98,10 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    # main()
 
-    # try:
-    #     main()
-    # except Exception as e:
-    #     logging.info(em := "Error Sending Meeting Update: " + str(e))
-    #     matrix_notify(em, MatrixConfig.CONFIG_FILE)
+    try:
+        main()
+    except Exception as e:
+        logging.info(em := "Error Sending Meeting Update: " + str(e))
+        matrix_notify(em, MatrixConfig.CONFIG_FILE)
