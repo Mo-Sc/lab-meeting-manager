@@ -46,9 +46,9 @@ class HTMLTemplates:  # HTML templates for the email notifications
             <p>Have a nice weekend!</p>
 
             <hr>
-            <p><i>Time: $time, $date</i></p>
-            <p><i>Place: Room X.YZ, Address and on <a href='meeting_link'>Zoom</a></i></p>
-            <p><i>Slide Upload: <a href='cloud_share_link'>Drive</a></i></p>
+            <p><i>Time: $start_time - $end_time, $date</i></p>
+            <p><i>Place: $location and on <a href='zoomlink'>Zoom</a></i></p>
+            <p><i>Slide Upload: <a href='uploadlink'>Drive</a></i></p>
             <hr>
 
         </body>
@@ -63,7 +63,7 @@ class HTMLTemplates:  # HTML templates for the email notifications
         <tr><th>Meeting Cancelled</th></tr>
         """
     NO_TALKS_TEMPLATE = """
-        <tr><td>No Talks Scheduled</td></tr>
+        <tr><td>Regular Update Meeting (No Talks Scheduled)</td></tr>
         """
     TABLE_BORDER_FORMATTING = """
         <style>
@@ -80,8 +80,5 @@ class HTMLTemplates:  # HTML templates for the email notifications
         </style>
         """
     ATTENDANCE_REMINDER_TEMPLATE = """
-        <p>Remember to confirm your attendance and check whether it is your turn to present your recent work (as shown in the template slide) in the <a href='shared_slides_link'>Colloquium Presentation</a>.</p>
+        <p>Remember to present your recent work if it is your turn by preparing a slide for this week’s <a href='sharedslidelink'>Colloquium Presentation</a>.</p>
     """
-
-
-# <p><i>Meeting Overview: <a href='link_to_meeting_plan'>Meeting Planer</a></i></p>

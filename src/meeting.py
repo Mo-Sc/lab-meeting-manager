@@ -173,6 +173,7 @@ class Meeting:
             attendance_reminder=attendace_reminder,
             start_time=self.start_time,
             end_time=self.end_time,
+            location=self.location,
             date=self.date.strftime("%d. %B %Y"),
         )
         return agenda_html, title
