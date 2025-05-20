@@ -10,6 +10,10 @@ TZ = pytz.timezone("Europe/Berlin")
 
 from datetime import datetime, timedelta
 
+# todo: move to config
+DEFAULT_TIME = "12:30"
+DURATION = 90  # minutes
+
 
 def get_week(kw=None, year=None):
     """
@@ -66,7 +70,7 @@ class Talk:
         self.student = talk_row[1]
         self.associate = talk_row[2]
         self.talk_type = talk_row[3]
-        self.time_estimate = int(talk_row[4])
+        self.time_estimate = int(talk_row[4]) if talk_row[4] else ""
         self.title = talk_row[5]
         self.comment = talk_row[6] if len(talk_row) > 6 else ""
         self.internal_comment = (
@@ -89,7 +93,11 @@ class Meeting:
         # self.time = (
         #     cell_block[0][1] if len(cell_block[1]) > 0 else "15:30"
         # )  # default time for meeting is 15:30
-        self.time = cell_block[0][1]
+        self.start_time = cell_block[0][1]
+        # convert start time to datetime obj and add duration to get end time
+        self.end_time = (
+            datetime.strptime(self.start_time, "%H:%M") + timedelta(minutes=DURATION)
+        ).strftime("%H:%M")
 
         talks = []
 
@@ -109,7 +117,12 @@ class Meeting:
         """
 
         talks_html = ""
-        title = "Lab Meeting Agenda - " + self.date.strftime("%d. %B %Y")
+        # title = "Lab Meeting Agenda - " + self.date.strftime("%d. %B %Y")
+        title = (
+            "Lab Meeting Agenda - "
+            + self.date.strftime("%d. %B %Y")
+            # + " - Würzburg Edition"
+        )
 
         # create html block for talks section based on meeting status
         if self.cancelled:
@@ -128,8 +141,9 @@ class Meeting:
             attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
 
         # if not default time, add it to the title / subject
-        if not self.cancelled and self.time != "15:30":
-            title += f" - UPDATED TIME: {self.time}"
+        if not self.cancelled and self.start_time != DEFAULT_TIME:
+            title = f"UPDATED TIME: {self.start_time} - " + title
+            # title += f" - UPDATED TIME: {self.start_time}"
 
         # Embed talks block into the meeting template
         # TODO: The link to the google sheet should always point to the current weeks cell block!
@@ -140,7 +154,8 @@ class Meeting:
             talks=talks_html,
             notes=f"<p><b>Notes: </b>{self.comment}</p> " if self.comment else "",
             attendance_reminder=attendace_reminder,
-            time=self.time,
+            start_time=self.start_time,
+            end_time=self.end_time,
             date=self.date.strftime("%d. %B %Y"),
         )
         return agenda_html, title
