@@ -4,7 +4,7 @@ from matrix_notify.notify import notify as matrix_notify
 
 from src.io.gsheet_api import GSheetAPI
 from src.io.email_sender import EmailSender
-from src.meeting import Meeting, get_week
+from src.meeting import Meeting, get_week, parse_config
 from config.config import GSheetConfig, HTMLTemplates, NotificationsConfig, MatrixConfig
 
 
@@ -62,13 +62,17 @@ def main():
         spreadsheet_range=GSheetConfig.SPREADSHEET_RANGE,
     )
 
+    # first 15 rows contain config information
+    online_config = parse_config(table[:15])
+    meeting_section_table = table[15:]
+
     meetings = []
 
     # parse the cell into meeting objects
-    # each meeting block has 5 rows, and 2 empty rows between each block
-    for i in range(0, len(table), 7):
-        meeting_block = table[i : i + 5]
-        meeting = Meeting(meeting_block)
+    # each meeting block has 13 rows, and 3 empty rows between each block
+    for i in range(0, len(meeting_section_table), 16):
+        meeting_block = meeting_section_table[i : i + 13]
+        meeting = Meeting(meeting_block, online_config=online_config)
         meetings.append(meeting)
 
     # meetings.sort(key=lambda x: x.date)
@@ -98,10 +102,10 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    # main()
 
-    # try:
-    #     main()
-    # except Exception as e:
-    #     logging.info(em := "Error Sending Meeting Update: " + str(e))
-    #     matrix_notify(em, MatrixConfig.CONFIG_FILE)
+    try:
+        main()
+    except Exception as e:
+        logging.info(em := "Error Sending Meeting Update: " + str(e))
+        matrix_notify(em, MatrixConfig.CONFIG_FILE)

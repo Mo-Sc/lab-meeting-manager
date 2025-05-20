@@ -45,10 +45,10 @@ A template for the spreadsheet can be provided upon request.
 Recommended use:
 - Share the document with all team members. Make white cells writable by the team, gray cells only by the admin.
 - Each member can add meetings to the rows.
-- When a meeting is canceled, check the canceled box. The meeting manager will automatically send a "meeting canceled" notification.
+- When a meeting is canceled, check the canceled box. The meeting manager will then send a "meeting canceled" notification.
 - Use Data Validation and conditional formatting to limit possible input (e.g., the "Associate" field only allows team members).
 - Don't insert, modify, or delete rows or columns; otherwise, the corresponding variables in the code must be adapted.
-- By default, the meeting will be scheduled at the time of day given at the top of the spreadsheet. If the time should be changed for an individual meeting, it can be set by entering the time below the corresponding meeting's date.
+- By default, the meeting will be scheduled with date, time, duration and location as given in the config section day at the top of the spreadsheet. This can be overwritten for an individual meeting by changing the values in the meeting's box.
 
 ## Run
 After setting up the configuration, start the script by running the `main.py` file.
