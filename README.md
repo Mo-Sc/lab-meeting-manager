@@ -14,7 +14,7 @@ The meeting manager is built around a shared Google Docs spreadsheet, where team
 
 ## Setup
 
-The configuration is mainly done via the `config.py`. For a detailed description of the parameters, check the file.
+The configuration is mainly done via `config/config.py`, which is not tracked by git. Create it from the template with `cp config/config.example.py config/config.py` and fill in your values. For a detailed description of the parameters, check the file.
 - **NotificationsConfig**: General configurations, like which channels to use and which week's agenda to compile.
 - **SMTPConfig**: Configuration of the email server.
 - **GSheetConfig**: Configuration of the Google Sheet API.
@@ -52,6 +52,10 @@ Recommended use:
 
 ## Run
 After setting up the configuration, start the script by running the `main.py` file.
+
+For a test send, set `MatrixConfig.TEST_CONFIG_FILE` to a separate Matrix credentials file and run `python main.py --test`.
+
+To check the agendas without sending anything, run `python main.py --dry-run`. The agendas are printed to the log.
 
 Alternatively, you can set up a cron job to send out the meeting agenda periodically, e.g., every Friday at 5 PM:
 - Open the crontab file: `crontab -e`

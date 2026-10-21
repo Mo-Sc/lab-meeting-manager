@@ -1,6 +1,7 @@
 class NotificationsConfig:
     CHANNELS = ["matrix", "email"]
     WEEK = "next"  # can be "next" (meaning next week), None (meaning this week) or an integer (the calendar week of the year)
+    BREAK_DURATION = 5  # minutes added after each talk
 
 
 class SMTPConfig:
@@ -25,6 +26,7 @@ class GSheetConfig:
 
 class MatrixConfig:
     CONFIG_FILE = "/path/to/lab_meeting_manager/config/matrix/credentials.json"  # the path to the file that contains the Matrix credentials
+    TEST_CONFIG_FILE = "/path/to/lab_meeting_manager/config/matrix/credentials_test.json"  # Matrix credentials for a test room, used with --test
 
 
 class HTMLTemplates:  # HTML templates for the email notifications

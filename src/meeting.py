@@ -1,59 +1,31 @@
 import pytz
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from string import Template
 
 
-from config.config import HTMLTemplates
+from config.config import HTMLTemplates, NotificationsConfig
 
 TZ = pytz.timezone("Europe/Berlin")
 
 
-from datetime import datetime, timedelta
-
-
 def get_week(kw=None, year=None):
     """
-    Function to return datetime objects for the start (Monday) and end (Sunday) dates of a given week.
-    If no argument is provided, the function returns the current week.
-    If the argument is an integer, the function returns the start and end dates of the week in the given year.
+    Return the Monday and Sunday dates of a week.
+    kw: None (current week), "next" (next week) or an int (ISO calendar week of `year`, default current year).
     """
 
     today = datetime.now().date()
 
-    if kw is None:
-        current_day_of_week = today.weekday()
-        # Calculate the current week's Monday
-        current_monday = today - timedelta(days=current_day_of_week)
-        current_sunday = current_monday + timedelta(days=6)
-        return current_monday, current_sunday
+    monday = today - timedelta(days=today.weekday())
 
-    elif kw == "next":
-        current_day_of_week = today.weekday()
-        # Calculate the current week's Monday
-        current_monday = today - timedelta(days=current_day_of_week)
-        current_sunday = current_monday + timedelta(days=6)
-        return current_monday + timedelta(weeks=1), current_sunday + timedelta(weeks=1)
-
+    if kw == "next":
+        monday += timedelta(weeks=1)
     elif isinstance(kw, int):
+        monday = date.fromisocalendar(year or today.year, kw, 1)
+    elif kw is not None:
+        raise ValueError(f"Invalid week: {kw}")
 
-        if year is None:
-            year = datetime.now().year
-
-        # Find the first day of the year
-        first_day_of_year = datetime(year, 1, 1)
-        # Calculate the first Monday of the year
-        first_monday_of_year = first_day_of_year - timedelta(
-            days=first_day_of_year.weekday()
-        )
-        # Calculate the start of the target week
-        start_of_week = first_monday_of_year + timedelta(weeks=kw - 1)
-        # Calculate the end of the target week
-        end_of_week = start_of_week + timedelta(days=6)
-
-        return start_of_week.date(), end_of_week.date()
-
-    else:
-        raise ValueError("Invalid argument for get_week function")
+    return monday, monday + timedelta(days=6)
 
 
 def render_html_template(template_str, **kwargs):
@@ -107,6 +79,7 @@ class Meeting:
 
         self.start_time = cell_block[3][1]
         self.end_time = cell_block[4][1]
+        self.time_changed = False  # if time deviates from default
 
         # convert start time to datetime obj and add duration to get end time
         # self.end_time = (
@@ -125,6 +98,10 @@ class Meeting:
 
         self.talks = talks
         self.n_talks = len(talks)
+
+        if self.n_talks > 0:
+            # talks are prepended to the meeting, so talk time has to be subtracted from start time
+            self.update_meeting_time(position="start")
 
     def compile_agenda(self):
         """
@@ -158,8 +135,8 @@ class Meeting:
                 attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
 
             # if not default time, add it to the title / subject
-            if self.start_time != self.online_config["default_time"]:
-                title = f"UPDATED TIME: {self.start_time} - " + title
+            if self.time_changed:
+                title = f"⚠️ Time Changed - " + title
             # title += f" - UPDATED TIME: {self.start_time}"
 
         # Embed talks block into the meeting template
@@ -177,3 +154,51 @@ class Meeting:
             date=self.date.strftime("%d. %B %Y"),
         )
         return agenda_html, title
+
+    def update_meeting_time(self, position="start"):
+        """
+        Updates the meeting time based on the number of talks and their time estimates.
+        Sets self.time_changed to True if the time was updated or if it deviates from the default time given in the config.
+        The total time of all talks is either added to the start or end time of the meeting, including configured breaks after each talk.
+        position: "start" or "end" - which time to update
+        """
+
+        start_time_dt = datetime.strptime(self.start_time, "%H:%M")
+        end_time_dt = datetime.strptime(self.end_time, "%H:%M")
+        default_start_time_dt = datetime.strptime(
+            self.online_config["default_time"], "%H:%M"
+        )
+        h, m, s = map(int, self.online_config["duration"].split(":"))
+        default_duration_td = timedelta(hours=h, minutes=m, seconds=s)
+
+        # start or end time deviates from default
+        if (
+            start_time_dt != default_start_time_dt
+            or end_time_dt - start_time_dt != default_duration_td
+        ):
+            self.time_changed = True
+
+        # calculate total talks time, including the configured break after each talk
+        talk_durations = [
+            talk.time_estimate + NotificationsConfig.BREAK_DURATION
+            for talk in self.talks
+            if talk.time_estimate
+        ]
+        total_talk_time = sum(talk_durations)
+
+        if total_talk_time == 0:
+            return  # no update needed
+
+        if position == "start":
+            # subtract total talk time from start time
+            new_start_time_dt = start_time_dt - timedelta(minutes=total_talk_time)
+            # convert back to string
+            self.start_time = new_start_time_dt.strftime("%H:%M")
+
+        elif position == "end":
+            # add total talk time to end time
+            new_end_time_dt = end_time_dt + timedelta(minutes=total_talk_time)
+            # convert back to string
+            self.end_time = new_end_time_dt.strftime("%H:%M")
+
+        self.time_changed = True

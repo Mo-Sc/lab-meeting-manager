@@ -1,3 +1,4 @@
+import argparse
 import logging
 
 from matrix_notify.notify import notify as matrix_notify
@@ -8,10 +9,26 @@ from src.meeting import Meeting, get_week, parse_config
 from config.config import GSheetConfig, HTMLTemplates, NotificationsConfig, MatrixConfig
 
 
-def publish_meeting(meeting: Meeting, channels=["matrix", "email"]):
+def resolve_notification_settings(test_mode=False, dry_run=False):
+    if dry_run:
+        return [], None
+
+    if not test_mode:
+        return NotificationsConfig.CHANNELS, MatrixConfig.CONFIG_FILE
+
+    if "matrix" not in NotificationsConfig.CHANNELS:
+        raise ValueError("--test requires 'matrix' in NotificationsConfig.CHANNELS")
+
+    return ["matrix"], MatrixConfig.TEST_CONFIG_FILE
+
+
+def publish_meeting(
+    meeting: Meeting, channels: list[str], matrix_config_file: str
+) -> list[str]:
     """
     Publish the meeting by compiling the meeting agenda
-    and sending it via the specified channels
+    and sending it via the specified channels.
+    Returns the channels that failed.
     """
 
     logging.info(f"Publishing meeting {meeting.date}")
@@ -19,16 +36,19 @@ def publish_meeting(meeting: Meeting, channels=["matrix", "email"]):
     # create html string with meeting agenda
     agenda_html, subject = meeting.compile_agenda()
 
-    # logging.info("Agenda Message:")
-    # logging.info(agenda_html)
+    if not channels:
+        logging.info(f"Dry run, not sending:\n{subject}\n{agenda_html}")
+
+    failed = []
 
     if "matrix" in channels:
         # try sending matrix notification
         try:
-            matrix_notify(agenda_html, MatrixConfig.CONFIG_FILE)
+            matrix_notify(agenda_html, matrix_config_file)
             logging.info("Matrix notification sent successfully!")
         except Exception as e:
-            logging.info("Error sending matrix notification:", str(e))
+            logging.error(f"Error sending matrix notification: {e}")
+            failed.append("matrix")
 
     if "email" in channels:
         # try sending email
@@ -45,19 +65,20 @@ def publish_meeting(meeting: Meeting, channels=["matrix", "email"]):
             email_sender.close_connection()
             logging.info("Email sent successfully!")
         except Exception as e:
-            logging.info("Error sending email:", str(e))
+            logging.error(f"Error sending email: {e}")
+            failed.append("email")
+
+    return failed
 
 
-def main():
+def main(channels: list[str], matrix_config_file: str):
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
-    gmail_api = GSheetAPI()
-
     # load the table from the relevant columns in the google sheet
-    table = gmail_api.load_cells(
+    table = GSheetAPI().load_cells(
         spreadsheet_id=GSheetConfig.SPREADSHEET_ID,
         spreadsheet_range=GSheetConfig.SPREADSHEET_RANGE,
     )
@@ -93,19 +114,33 @@ def main():
 
     logging.info(f"Found {len(next_weeks_meetings)} meetings in specified week")
 
-    # publish all meeting that happen in next week
-    for meeting in next_weeks_meetings:
-        publish_meeting(meeting, channels=NotificationsConfig.CHANNELS)
+    failed = [
+        f"{meeting.date} ({channel})"
+        for meeting in next_weeks_meetings
+        for channel in publish_meeting(meeting, channels, matrix_config_file)
+    ]
+    if failed:
+        raise RuntimeError(f"Failed to publish: {', '.join(failed)}")
 
     logging.info("All meetings published successfully!")
 
 
 if __name__ == "__main__":
 
-    # main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--test", action="store_true", help="send only to the test Matrix destination"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="print the agendas without sending"
+    )
+    args = parser.parse_args()
+    channels, matrix_config_file = resolve_notification_settings(args.test, args.dry_run)
 
     try:
-        main()
+        main(channels=channels, matrix_config_file=matrix_config_file)
     except Exception as e:
-        logging.info(em := "Error Sending Meeting Update: " + str(e))
-        matrix_notify(em, MatrixConfig.CONFIG_FILE)
+        logging.error(em := f"Error Sending Meeting Update: {e}")
+        if not args.dry_run:
+            matrix_notify(em, matrix_config_file)
+        raise
