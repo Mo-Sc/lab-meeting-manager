@@ -3,6 +3,7 @@ config/matrix
 config/email
 config/gsheet
 config/config.py
+config/staff.json
 run_amy_env.sh
 path_config.sh
 

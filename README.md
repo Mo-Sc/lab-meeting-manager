@@ -1,6 +1,6 @@
 # Lab Meeting Manager
 
-Repository to automatically notify team members about the agenda of the next weekly group meeting, based on a shared Google Sheet. Supports notification via Email and Matrix chat.
+Repository to automatically notify team members about the agenda of the next weekly group meeting, based on a shared Google Sheet. Supports notification via Email and Matrix chat, and can create a Google Slides deck for each meeting.
 
 The meeting manager is built around a shared Google Docs spreadsheet, where team members enter the talks they (or their students) plan. The meeting manager then sends an agenda message via the specified channels to the given recipients at a specified time, for example, every Monday. It can handle multiple meetings in one week. A sample spreadsheet that works without adjustments can be provided upon request. If the document structure is changed (e.g., what is in which row or column), the corresponding code must be updated accordingly.
 
@@ -17,7 +17,8 @@ The meeting manager is built around a shared Google Docs spreadsheet, where team
 The configuration is mainly done via `config/config.py`, which is not tracked by git. Create it from the template with `cp config/config.example.py config/config.py` and fill in your values. For a detailed description of the parameters, check the file.
 - **NotificationsConfig**: General configurations, like which channels to use and which week's agenda to compile.
 - **SMTPConfig**: Configuration of the email server.
-- **GSheetConfig**: Configuration of the Google Sheet API.
+- **GSheetConfig**: Configuration of the Google API access (credentials, scopes) and the spreadsheet.
+- **SlidesConfig**: Optional creation of a slide deck for each upcoming meeting (see [Meeting Slides](#meeting-slides)).
 
 
 ### Credential Files
@@ -31,11 +32,21 @@ Each channel has a separate json file that can be used to store confidential dat
 
 **GSheet:**
 
-The GSheet `credentials.json` file can be downloaded when creating the [API access](https://developers.google.com/sheets/api/quickstart/python).
+The GSheet `credentials.json` file can be downloaded when creating the [API access](https://developers.google.com/sheets/api/quickstart/python). On the first run, the tool asks you to log in and stores the result in `token.json`.
 
 **Matrix:**
 
 For the Matrix credentials file, check the [matrix-notifier](https://github.com/Mo-Sc/matrix-notifier) repository.
+
+### Meeting Slides
+If `SlidesConfig.ENABLED` is set, the tool copies the template presentation into the shared folder for every upcoming, non-cancelled meeting, named `<NAME_PREFIX>-<YYYY-MM-DD>-<group>`. The agenda then links to this deck.
+
+Requirements:
+- The Google Drive API and Google Slides API are enabled in the Google Cloud project, and `https://www.googleapis.com/auth/drive` is in `GSheetConfig.SCOPES`.
+- The template is a native Google Slides file and contains these placeholders: `{{date}}`, `{{group}}`, `{{staff}}`, `{{students}}` and `{{agenda}}`.
+- A staff file (see `config/staff.example.json`) that assigns every member a role (`staff` or `student`) and a group (`A` or `B`).
+
+Groups A and B alternate with every scheduled meeting, including cancelled ones. `SlidesConfig.ANCHOR_DATE` sets a meeting of group A.
 
 ### Spreadsheet
 A template for the spreadsheet can be provided upon request.
@@ -53,7 +64,7 @@ Recommended use:
 ## Run
 After setting up the configuration, start the script by running the `main.py` file.
 
-For a test send, set `MatrixConfig.TEST_CONFIG_FILE` to a separate Matrix credentials file and run `python main.py --test`.
+For a test send, set `MatrixConfig.TEST_CONFIG_FILE` to a separate Matrix credentials file and run `python main.py --test`. Slide decks are still created in the shared folder.
 
 To check the agendas without sending anything, run `python main.py --dry-run`. The agendas are printed to the log.
 

@@ -1,12 +1,19 @@
 import argparse
+import json
 import logging
 
 from matrix_notify.notify import notify as matrix_notify
 
-from src.io.gsheet_api import GSheetAPI
+from src.io.google_api import GoogleAPI
 from src.io.email_sender import EmailSender
 from src.meeting import Meeting, get_week, parse_config
-from config.config import GSheetConfig, HTMLTemplates, NotificationsConfig, MatrixConfig
+from config.config import (
+    GSheetConfig,
+    HTMLTemplates,
+    NotificationsConfig,
+    MatrixConfig,
+    SlidesConfig,
+)
 
 
 def resolve_notification_settings(test_mode=False, dry_run=False):
@@ -20,6 +27,31 @@ def resolve_notification_settings(test_mode=False, dry_run=False):
         raise ValueError("--test requires 'matrix' in NotificationsConfig.CHANNELS")
 
     return ["matrix"], MatrixConfig.TEST_CONFIG_FILE
+
+
+def create_slides(google_api: GoogleAPI, meeting: Meeting, staff: list[dict]) -> str:
+    """
+    Copy the slide template for the meeting and fill in the date, the presenting group and the agenda.
+    Returns the URL of the slides.
+    """
+    group = [person for person in staff if person["group"] == meeting.group]
+    talks = [
+        f"{talk.student}: {talk.title} ({talk.talk_type}, {talk.time_estimate} min)"
+        for talk in meeting.talks
+    ]
+
+    return google_api.copy_presentation(
+        template_id=SlidesConfig.TEMPLATE_ID,
+        folder_id=SlidesConfig.FOLDER_ID,
+        name=f"{SlidesConfig.NAME_PREFIX}-{meeting.date:%Y-%m-%d}-{meeting.group}",
+        replacements={
+            "date": f"{meeting.date:%B} {meeting.date.day}, {meeting.date.year}",
+            "group": meeting.group,
+            "staff": "\n".join(p["name"] for p in group if p["role"] == "staff"),
+            "students": "\n".join(p["name"] for p in group if p["role"] == "student"),
+            "agenda": "\n".join([f"Update Meeting Group {meeting.group}", *talks]),
+        },
+    )
 
 
 def publish_meeting(
@@ -71,14 +103,16 @@ def publish_meeting(
     return failed
 
 
-def main(channels: list[str], matrix_config_file: str):
+def main(channels: list[str], matrix_config_file: str, with_slides: bool):
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
+    google_api = GoogleAPI()
+
     # load the table from the relevant columns in the google sheet
-    table = GSheetAPI().load_cells(
+    table = google_api.load_cells(
         spreadsheet_id=GSheetConfig.SPREADSHEET_ID,
         spreadsheet_range=GSheetConfig.SPREADSHEET_RANGE,
     )
@@ -114,6 +148,22 @@ def main(channels: list[str], matrix_config_file: str):
 
     logging.info(f"Found {len(next_weeks_meetings)} meetings in specified week")
 
+    # all slides are created before sending, so a failure stops every agenda from going out with a broken link
+    if with_slides:
+        with open(SlidesConfig.STAFF_FILE) as f:
+            staff = json.load(f)
+
+        # groups alternate per scheduled meeting, so after a cancelled meeting the previous group presents again
+        scheduled = sorted(
+            (m for m in meetings if m.date >= SlidesConfig.ANCHOR_DATE), key=lambda m: m.date
+        )
+        for i, meeting in enumerate(scheduled):
+            meeting.group = "AB"[i % 2]
+
+        for meeting in next_weeks_meetings:
+            if not meeting.cancelled:
+                meeting.slides_link = create_slides(google_api, meeting, staff)
+
     failed = [
         f"{meeting.date} ({channel})"
         for meeting in next_weeks_meetings
@@ -136,9 +186,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     channels, matrix_config_file = resolve_notification_settings(args.test, args.dry_run)
+    with_slides = SlidesConfig.ENABLED and not args.dry_run
 
     try:
-        main(channels=channels, matrix_config_file=matrix_config_file)
+        main(channels, matrix_config_file, with_slides)
     except Exception as e:
         logging.error(em := f"Error Sending Meeting Update: {e}")
         if not args.dry_run:

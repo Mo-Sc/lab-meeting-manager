@@ -1,0 +1,6 @@
+[
+    {"name": "Jane Doe", "role": "staff", "group": "A"},
+    {"name": "John Smith", "role": "staff", "group": "B"},
+    {"name": "Erika Mustermann", "role": "student", "group": "A"},
+    {"name": "Max Mustermann", "role": "student", "group": "B"}
+]

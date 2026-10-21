@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from string import Template
 
 
-from config.config import HTMLTemplates, NotificationsConfig
+from config.config import HTMLTemplates, NotificationsConfig, SlidesConfig
 
 TZ = pytz.timezone("Europe/Berlin")
 
@@ -88,6 +88,10 @@ class Meeting:
 
         self.location = cell_block[3][4]
 
+        # set by main, since the presenting group depends on the previous meetings
+        self.group = None
+        self.slides_link = f"https://drive.google.com/drive/folders/{SlidesConfig.FOLDER_ID}"
+
         talks = []
 
         # extract talks from the cell block. Number of talks can vary
@@ -123,16 +127,18 @@ class Meeting:
             # add location to title
             title += f" - {self.location.split(' ')[-1]} Edition"
 
+            attendace_reminder = render_html_template(
+                HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE, slides_link=self.slides_link
+            )
+
             if self.n_talks == 0:
                 talks_html += render_html_template(HTMLTemplates.NO_TALKS_TEMPLATE)
-                attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
             else:
                 talks_html += render_html_template(HTMLTemplates.TALK_HEADER_TEMPLATE)
                 for talk in self.talks:
                     talks_html += render_html_template(
                         HTMLTemplates.TALK_TEMPLATE, **talk.__dict__
                     )
-                attendace_reminder = HTMLTemplates.ATTENDANCE_REMINDER_TEMPLATE
 
             # if not default time, add it to the title / subject
             if self.time_changed:

@@ -1,3 +1,6 @@
+from datetime import date
+
+
 class NotificationsConfig:
     CHANNELS = ["matrix", "email"]
     WEEK = "next"  # can be "next" (meaning next week), None (meaning this week) or an integer (the calendar week of the year)
@@ -18,8 +21,9 @@ class SMTPConfig:
 class GSheetConfig:
     CREDENTIALS_PATH = "/path/to/lab_meeting_manager/config/gsheet"  # the path to the folder that contains the credentials.json file
     SCOPES = [
-        "https://www.googleapis.com/auth/spreadsheets.readonly"
-    ]  # the scopes required to access the Google Sheets API
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive",  # only needed for SlidesConfig
+    ]  # the scopes required to access the Google APIs. Delete token.json after changing them
     SPREADSHEET_ID = "<spreadsheet_id>"  # the ID of the Google Sheet
     SPREADSHEET_RANGE = "<sheet_name>!range"  # the range of the Google Sheet
 
@@ -27,6 +31,17 @@ class GSheetConfig:
 class MatrixConfig:
     CONFIG_FILE = "/path/to/lab_meeting_manager/config/matrix/credentials.json"  # the path to the file that contains the Matrix credentials
     TEST_CONFIG_FILE = "/path/to/lab_meeting_manager/config/matrix/credentials_test.json"  # Matrix credentials for a test room, used with --test
+
+
+class SlidesConfig:
+    ENABLED = False  # create a slide deck for each upcoming meeting from the template
+    TEMPLATE_ID = "<template_id>"  # from the template URL docs.google.com/presentation/d/<template_id>/edit
+    FOLDER_ID = "<folder_id>"  # shared folder for the decks, from drive.google.com/drive/folders/<folder_id>
+    NAME_PREFIX = "AIMI-Meeting-Slides"  # name of the created decks (not the template): <prefix>-<YYYY-MM-DD>-<group>
+    STAFF_FILE = "/path/to/lab_meeting_manager/config/staff.json"  # see config/staff.example.json
+    # date of a meeting of group A. Groups alternate per scheduled meeting, including cancelled ones.
+    # Must lie within SPREADSHEET_RANGE, so update it when switching to a new year's tab.
+    ANCHOR_DATE = date(2026, 10, 14)
 
 
 class HTMLTemplates:  # HTML templates for the email notifications
@@ -82,5 +97,5 @@ class HTMLTemplates:  # HTML templates for the email notifications
         </style>
         """
     ATTENDANCE_REMINDER_TEMPLATE = """
-        <p>Remember to present your recent work if it is your turn by preparing a slide for this week’s <a href='sharedslidelink'>Colloquium Presentation</a>.</p>
+        <p>Remember to present your recent work if it is your turn by preparing a slide for this week’s <a href='$slides_link'>Colloquium Presentation</a>.</p>
     """
