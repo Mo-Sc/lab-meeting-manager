@@ -4,6 +4,7 @@ import logging
 
 from matrix_notify.notify import notify as matrix_notify
 
+from src.io.gitlab_wiki import load_people
 from src.io.google_api import GoogleAPI
 from src.io.email_sender import EmailSender
 from src.meeting import Meeting, get_week, parse_config
@@ -150,8 +151,11 @@ def main(channels: list[str], matrix_config_file: str, with_slides: bool):
 
     # all slides are created before sending, so a failure stops every agenda from going out with a broken link
     if with_slides:
-        with open(SlidesConfig.STAFF_FILE) as f:
-            staff = json.load(f)
+        if SlidesConfig.STAFF_FILE:
+            with open(SlidesConfig.STAFF_FILE) as f:
+                staff = json.load(f)
+        else:
+            staff = load_people()
 
         # groups alternate per scheduled meeting, so after a cancelled meeting the previous group presents again
         scheduled = sorted(

@@ -44,7 +44,7 @@ If `SlidesConfig.ENABLED` is set, the tool copies the template presentation into
 Requirements:
 - The Google Drive API and Google Slides API are enabled in the Google Cloud project, and `https://www.googleapis.com/auth/drive` is in `GSheetConfig.SCOPES`.
 - The template is a native Google Slides file and contains these placeholders: `{{date}}`, `{{group}}`, `{{staff}}`, `{{students}}` and `{{agenda}}`.
-- A staff file (see `config/staff.example.json`) that assigns every member a role (`staff` or `student`) and a group (`A` or `B`).
+- A GitLab wiki page (`WikiConfig`) with a `## Staff` and a `## Students` table, each with the columns `Name` and `Meeting Group` (`A` or `B`). People without a meeting group are skipped. Alternatively, set `SlidesConfig.STAFF_FILE` to a json file (see `config/staff.example.json`).
 
 Groups A and B alternate with every scheduled meeting, including cancelled ones. `SlidesConfig.ANCHOR_DATE` sets a meeting of group A.
 
