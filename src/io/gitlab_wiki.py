@@ -38,4 +38,7 @@ def load_people() -> list[dict]:
                 continue
             people.append({"name": person["Name"], "role": role, "group": person["Meeting Group"]})
 
+    if not people:
+        raise ValueError("No people with a meeting group found on the wiki page")
+
     return people

@@ -38,13 +38,14 @@ class SlidesConfig:
     TEMPLATE_ID = "<template_id>"  # from the template URL docs.google.com/presentation/d/<template_id>/edit
     FOLDER_ID = "<folder_id>"  # shared folder for the decks, from drive.google.com/drive/folders/<folder_id>
     NAME_PREFIX = "AIMI-Meeting-Slides"  # name of the created decks (not the template): <prefix>-<YYYY-MM-DD>-<group>
-    STAFF_FILE = None  # path to a json file with the people (see config/staff.example.json). None reads them from the wiki (WikiConfig)
+    STAFF_FILE = "/path/to/lab_meeting_manager/config/staff.json"  # people per group (see config/staff.example.json), updated from the wiki if WikiConfig.ENABLED
     # date of a meeting of group A. Groups alternate per scheduled meeting, including cancelled ones.
     # Must lie within SPREADSHEET_RANGE, so update it when switching to a new year's tab.
     ANCHOR_DATE = date(2026, 10, 14)
 
 
 class WikiConfig:  # GitLab wiki page with the Staff and Students tables (columns "Name" and "Meeting Group")
+    ENABLED = False  # update SlidesConfig.STAFF_FILE from the wiki before each run; the stored file is used if that fails
     URL = "https://gitlab.example.com"
     PROJECT = "<group>/<project>"  # project path of the wiki
     PAGE = "<page_slug>"  # from the page URL <URL>/<PROJECT>/-/wikis/<page_slug>

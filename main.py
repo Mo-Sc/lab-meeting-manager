@@ -14,6 +14,7 @@ from config.config import (
     NotificationsConfig,
     MatrixConfig,
     SlidesConfig,
+    WikiConfig,
 )
 
 
@@ -151,15 +152,25 @@ def main(channels: list[str], matrix_config_file: str, with_slides: bool):
 
     # all slides are created before sending, so a failure stops every agenda from going out with a broken link
     if with_slides:
-        if SlidesConfig.STAFF_FILE:
-            with open(SlidesConfig.STAFF_FILE) as f:
-                staff = json.load(f)
-        else:
-            staff = load_people()
+        if WikiConfig.ENABLED:
+            # the stored list stays as fallback
+            try:
+                people = load_people()
+                with open(SlidesConfig.STAFF_FILE, "w") as f:
+                    json.dump(people, f, indent=4, ensure_ascii=False)
+            except Exception as e:
+                logging.warning(
+                    em := f"Could not update staff from the wiki, using the stored list: {e}"
+                )
+                matrix_notify(em, MatrixConfig.TEST_CONFIG_FILE)
+
+        with open(SlidesConfig.STAFF_FILE) as f:
+            staff = json.load(f)
 
         # groups alternate per scheduled meeting, so after a cancelled meeting the previous group presents again
         scheduled = sorted(
-            (m for m in meetings if m.date >= SlidesConfig.ANCHOR_DATE), key=lambda m: m.date
+            (m for m in meetings if m.date >= SlidesConfig.ANCHOR_DATE),
+            key=lambda m: m.date,
         )
         for i, meeting in enumerate(scheduled):
             meeting.group = "AB"[i % 2]
@@ -189,7 +200,9 @@ if __name__ == "__main__":
         "--dry-run", action="store_true", help="print the agendas without sending"
     )
     args = parser.parse_args()
-    channels, matrix_config_file = resolve_notification_settings(args.test, args.dry_run)
+    channels, matrix_config_file = resolve_notification_settings(
+        args.test, args.dry_run
+    )
     with_slides = SlidesConfig.ENABLED and not args.dry_run
 
     try:
